@@ -1,0 +1,273 @@
+-- delta_hercules_farm.lua
+-- Delta mobile — Auto-Farm de Delivery (UI Repaginada)
+-- Cola, EXECUTE.
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local container = player and player:FindFirstChild("PlayerGui") or CoreGui
+
+pcall(function()
+    local old = container:FindFirstChild("HerculesFarm")
+    if old then old:Destroy() end
+end)
+
+local farming = false
+
+-- ============================================================
+-- UI
+-- ============================================================
+local gui = Instance.new("ScreenGui")
+gui.Name = "HerculesFarm"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 999
+gui.Parent = container
+
+local root = Instance.new("Frame")
+root.Size = UDim2.new(0, 320, 0, 220)
+root.Position = UDim2.new(0.5, -160, 0.5, -110)
+root.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+root.BorderSizePixel = 0
+root.ClipsDescendants = true
+root.Parent = gui
+Instance.new("UICorner", root).CornerRadius = UDim.new(0, 12)
+
+-- Gradiente de fundo
+local bgGrad = Instance.new("UIGradient")
+bgGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 25)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+bgGrad.Rotation = 45
+bgGrad.Parent = root
+
+-- Borda Neon
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 60, 0)
+stroke.Thickness = 2
+stroke.Transparency = 0.2
+stroke.Parent = root
+
+-- Animação da Borda (Pulsar)
+task.spawn(function()
+    while gui.Parent do
+        TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.8}):Play()
+        task.wait(1)
+        TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.2}):Play()
+        task.wait(1)
+    end
+end)
+
+-- Header (Título e Fechar)
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 50)
+header.BackgroundTransparency = 1
+header.Parent = root
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -50, 1, 0)
+title.Position = UDim2.new(0, 15, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "AUTO FARM (HERCULES)"
+title.TextColor3 = Color3.fromRGB(255, 140, 30)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 16
+title.Parent = header
+
+-- Linha decorativa embaixo do título
+local line = Instance.new("Frame")
+line.Size = UDim2.new(1, -30, 0, 2)
+line.Position = UDim2.new(0, 15, 0, 48)
+line.BackgroundColor3 = Color3.fromRGB(255, 60, 0)
+line.BorderSizePixel = 0
+line.Parent = header
+local lineGrad = Instance.new("UIGradient")
+lineGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 200, 0))
+}
+lineGrad.Parent = line
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -42, 0, 9)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.Font = Enum.Font.GothamBlack
+closeBtn.TextSize = 16
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = header
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+closeBtn.MouseButton1Click:Connect(function() 
+    farming = false
+    gui:Destroy() 
+end)
+
+-- Painel de Status
+local statusFrame = Instance.new("Frame")
+statusFrame.Size = UDim2.new(1, -30, 0, 60)
+statusFrame.Position = UDim2.new(0, 15, 0, 65)
+statusFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+statusFrame.BorderSizePixel = 0
+statusFrame.Parent = root
+Instance.new("UICorner", statusFrame).CornerRadius = UDim.new(0, 8)
+
+local statusText = Instance.new("TextLabel")
+statusText.Size = UDim2.new(1, -20, 1, 0)
+statusText.Position = UDim2.new(0, 10, 0, 0)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Status: Desativado"
+statusText.TextColor3 = Color3.fromRGB(180, 180, 190)
+statusText.Font = Enum.Font.GothamBold
+statusText.TextSize = 12
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+statusText.TextWrapped = true
+statusText.Parent = statusFrame
+
+-- Botão Toggle
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, -30, 0, 50)
+toggleBtn.Position = UDim2.new(0, 15, 0, 140)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+toggleBtn.Text = "INICIAR FARM"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 14
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Parent = root
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 8)
+
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Color = Color3.fromRGB(255, 60, 0)
+btnStroke.Thickness = 1.5
+btnStroke.Parent = toggleBtn
+
+-- ============================================================
+-- LÓGICA
+-- ============================================================
+local function findDeliveryGive()
+    local deliveryQuest = Workspace:FindFirstChild("Delivery Quest", true) or Workspace:FindFirstChild("DeliveryQuest", true) or Workspace:FindFirstChild("Delivery", true)
+    if deliveryQuest then
+        local givePart = deliveryQuest:FindFirstChild("Give", true)
+        if givePart and givePart:IsA("BasePart") then return givePart end
+        local point = deliveryQuest:FindFirstChild("Delivery Point", true) or deliveryQuest:FindFirstChild("DeliveryPoint", true)
+        if point then return point:IsA("BasePart") and point or point:FindFirstChildWhichIsA("BasePart", true) end
+    end
+    return Workspace:FindFirstChild("Give", true)
+end
+
+local function farmLoop()
+    while farming do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if hrp then
+            statusText.Text = "Procurando caixa..."
+            statusText.TextColor3 = Color3.fromRGB(255, 180, 60)
+            
+            local clickPart = Workspace:FindFirstChild("ClickPart", true)
+            
+            if clickPart then
+                statusText.Text = "Pegando caixa..."
+                statusText.TextColor3 = Color3.fromRGB(120, 220, 120)
+                
+                local targetPos = clickPart.CFrame * CFrame.new(0, 2, -3)
+                char:PivotTo(targetPos)
+                task.wait(0.5)
+                
+                local clickDetector = clickPart:FindFirstChildWhichIsA("ClickDetector") or clickPart:FindFirstChildWhichIsA("ClickDetector", true)
+                if clickDetector then
+                    pcall(function() fireclickdetector(clickDetector) end)
+                    task.wait(0.2)
+                    pcall(function() fireclickdetector(clickDetector) end) 
+                end
+                
+                task.wait(2) -- Espera o Give aparecer
+                
+                statusText.Text = "Procurando destino..."
+                statusText.TextColor3 = Color3.fromRGB(255, 180, 60)
+                
+                local deliveryPart = findDeliveryGive()
+                
+                if deliveryPart then
+                    statusText.Text = "Entregando (Física)..."
+                    statusText.TextColor3 = Color3.fromRGB(120, 220, 120)
+                    
+                    -- 1. Sai do círculo
+                    local outCFrame = deliveryPart.CFrame * CFrame.new(0, 2, 5)
+                    char:PivotTo(outCFrame)
+                    task.wait(0.3)
+                    
+                    -- 2. Entra no círculo
+                    local inCFrame = CFrame.new(deliveryPart.Position.X, deliveryPart.Position.Y + 3, deliveryPart.Position.Z)
+                    char:PivotTo(inCFrame)
+                    
+                    -- 3. Trava no chão
+                    local startTime = tick()
+                    while tick() - startTime < 2 and farming do
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            char.HumanoidRootPart.CFrame = inCFrame
+                        end
+                        task.wait(0.1)
+                    end
+                    
+                    task.wait(1)
+                else
+                    statusText.Text = "Destino não gerado."
+                    statusText.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    task.wait(1)
+                end
+            else
+                statusText.Text = "Caixa não encontrada."
+                statusText.TextColor3 = Color3.fromRGB(255, 80, 80)
+                task.wait(1)
+            end
+        end
+        task.wait(0.5)
+    end
+end
+
+toggleBtn.MouseButton1Click:Connect(function()
+    farming = not farming
+    if farming then
+        toggleBtn.Text = "PARAR FARM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+        btnStroke.Color = Color3.fromRGB(255, 100, 100)
+        statusText.Text = "Iniciando..."
+        statusText.TextColor3 = Color3.fromRGB(255, 180, 60)
+        task.spawn(farmLoop)
+    else
+        toggleBtn.Text = "INICIAR FARM"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        btnStroke.Color = Color3.fromRGB(255, 60, 0)
+        statusText.Text = "Status: Parado."
+        statusText.TextColor3 = Color3.fromRGB(180, 180, 190)
+    end
+end)
+
+-- Drag
+local dragging, dragStart, startPos
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = input.Position; startPos = root.Position
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if not dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local d = input.Position - dragStart
+        root.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+
+getgenv().HerculesFarm_running = true
